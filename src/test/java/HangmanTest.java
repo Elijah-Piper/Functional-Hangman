@@ -27,6 +27,7 @@ class HangmanTest {
     // Hangman instance.generateMissed tests
     @Test
     void generateMissedReturnsOutputSorted() {
+        System.setIn(new ByteArrayInputStream("name".getBytes()));
         Hangman game = new Hangman();
         game.addToGuessedSet('d');
         game.addToGuessedSet('c');
@@ -36,6 +37,7 @@ class HangmanTest {
     }
     @Test
     void generateMissedIsCaseInsensitive() {
+        System.setIn(new ByteArrayInputStream("name".getBytes()));
         Hangman game = new Hangman();
         game.addToGuessedSet('A');
         game.addToGuessedSet('a');
@@ -72,5 +74,30 @@ class HangmanTest {
         game.setWord("apple");
         game.addToGuessedSet('p');
         assert(game.generateHiddenWord().equals("_pp__"));
+    }
+
+    // Hangman instance.hasWon tests
+    @Test
+    void hasWonReturnsTrueIfAllCharsFound() {
+        System.setIn(new ByteArrayInputStream("name".getBytes()));
+        Hangman game = new Hangman();
+        game.setWord("apple");
+        game.addToGuessedSet('a');
+        game.addToGuessedSet('p');
+        game.addToGuessedSet('l');
+        game.addToGuessedSet('e');
+        game.addToGuessedSet('z');
+        assert(game.hasWon());
+    }
+    @Test
+    void hasWonReturnsFalseIfAllCharsNotFound() {
+        System.setIn(new ByteArrayInputStream("name".getBytes()));
+        Hangman game = new Hangman();
+        game.setWord("apple");
+        game.addToGuessedSet('p');
+        game.addToGuessedSet('l');
+        game.addToGuessedSet('e');
+        game.addToGuessedSet('z');
+        assert(!game.hasWon());
     }
 }

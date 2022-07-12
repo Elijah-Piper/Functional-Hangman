@@ -1,11 +1,14 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Hangman {
     private String word;
@@ -17,11 +20,19 @@ public class Hangman {
     // CONSTRUCTORS
     public Hangman() {
         // Non-custom instantiation
-        word = selectWord(1, 20);
+        word = selectWord(1, 30);
         attempts = 6;
         guessedSet = new HashSet<>();
-        playerName = userInput("What is your name?\n", Pattern.compile(".*"), "New lines not allowed.\n");
-        score = 0;
+        playerName = userInput("What is your name?\n", Pattern.compile("[a-zA-Z0-9]+"), "No special characters or spaces allowed.\n");
+    }
+
+    public Hangman(int score) {
+        // Initialization with previous score record
+        word = selectWord(1, 30);
+        attempts = 6;
+        guessedSet = new HashSet<>();
+        playerName = userInput("What is your name?\n", Pattern.compile("[a-zA-Z0-9]+"), "No special characters or spaces allowed.\n");
+        score = score;
     }
 
     public Hangman(int minLength, int maxLength) {
@@ -29,8 +40,7 @@ public class Hangman {
         word = selectWord(minLength, maxLength);
         attempts = 6;
         guessedSet = new HashSet<>();
-        playerName = userInput("What is your name?\n", Pattern.compile(".*"), "New lines not allowed.\n");
-        score = 0;
+        playerName = userInput("What is your name?\n", Pattern.compile("[a-zA-Z0-9]+"), "No special characters or spaces allowed.\n");
     }
 
     // GETTERS AND SETTERS
@@ -121,6 +131,10 @@ public class Hangman {
         return hiddenWord;
     }
 
+    public String generateGameScreen() {
+        return generateGallows() + "\n" + generateMissed() + "\n" + generateHiddenWord() + "\n";
+    }
+
     public static boolean userInputYesOrNo(String question) {
         // Asks the user a yes or no question, returning boolean depending on answer, using recursion for input validation
         Scanner sc = new Scanner(System.in);
@@ -161,7 +175,109 @@ public class Hangman {
         return "";
     }
 
-    public static void main(String[] args) {
+    public void guess() {
+        try {
+            char g = Hangman.userInput(
+                    "Guess a letter\n",
+                    Pattern.compile("[A-Za-z]"),
+                    "a single letter.\n"
+            ).charAt(0);
+            if (!guessedSet.contains(g) && word.contains("" + g)) { // Guess was not already guessed and is part of word
+                guessedSet.add(g);
+            } else if (!guessedSet.contains(g) && !word.contains("" + g)) { // Guess was not already guessed and is not part of word
+                guessedSet.add(g);
+                attempts--;
+            } else { // Guess was already guessed
+                System.out.println("You already made that guess.");
+                guess();
+            }
+        } catch (Exception e) {
+            guess();
+        }
+    }
 
+    public boolean hasWon() {
+        Set<Character> wordSet = word.chars().mapToObj(e -> (char) e).collect(Collectors.toSet());
+        return guessedSet.containsAll(wordSet);
+    }
+
+    public int determineScore() {
+        // For a single word, not consecutive runs
+        // Score is the number of unique characters correctly guessed
+        // If the whole word is not guessed, the score is zero
+        int score = 0;
+        if (hasWon()) {
+            score = word.chars().mapToObj(c -> (char) c).collect(Collectors.toSet()).size();
+        }
+        return score;
+    }
+
+    public void recordScore() {
+        // Writes the new score to highScores.txt in the proper score order (highest scores at the top)
+        try {
+            List<String> currentScores = Files.readAllLines(Paths.get("src/main/resources/highScores.txt"));
+            currentScores.add("%d : %s".formatted(score, playerName));
+            currentScores.remove("Score : Player");
+            currentScores.sort(new Comparator<String>() {
+                                   @Override
+                                   public int compare(String o1, String o2) {
+                                       return Integer.valueOf(o1.split(" : ")[0]).compareTo(Integer.valueOf(o2.split(" : ")[0])) * -1;
+                                   }
+                               });
+            currentScores.add(0, "Score : Player");
+            Files.write(
+                    Paths.get("src/main/resources/highScores.txt"),
+                    currentScores,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.WRITE);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            boolean newGame = false;
+            int score = 0;
+            Hangman game = new Hangman();
+
+            while (true) { // Game Loop
+                // Game Initialization
+                if (newGame && score != 0) {
+                    game = new Hangman(score);
+                    newGame = false;
+                }
+                else if (newGame) {
+                    game = new Hangman();
+                }
+                System.out.println(game.generateGameScreen());
+
+                game.guess();
+
+                if (game.hasWon()) {
+                    score += game.determineScore();
+                    System.out.println(game.generateGameScreen());
+                    System.out.printf("Congratulations! You won! The word was %s. Your current score is %d.\n", game.getWord(), score);
+                    game.setScore(game.getScore() + score);
+                    if (Hangman.userInputYesOrNo("Would you like to play again?")) newGame = true;
+                    else {
+                        game.recordScore();
+                        break;
+                    }
+                } else if (game.getAttempts() == 0) {
+                    System.out.println(game.generateGameScreen());
+                    System.out.printf("Game over...\nThe word was %s. Your final score was %d\n", game.getWord(), score);
+                    game.setScore(game.getScore() + score);
+                    if (Hangman.userInputYesOrNo("Would you like to play again?")) newGame = true;
+                    else {
+                        if (game.getScore() != 0) game.recordScore();
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("An exception was caught; you're safe now.");
+            e.printStackTrace();
+        }
     }
 }
