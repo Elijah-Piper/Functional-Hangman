@@ -211,17 +211,23 @@ public class Hangman {
 
     public void recordScore() {
         // Writes the new score to highScores.txt in the proper score order (highest scores at the top)
+        List<String> titleList = Arrays.asList("Score : Player");
         try {
             List<String> currentScores = Files.readAllLines(Paths.get("src/main/resources/highScores.txt"));
-            currentScores.add("%d : %s".formatted(score, playerName));
-            currentScores.remove("Score : Player");
-            currentScores.sort(new Comparator<String>() {
-                                   @Override
-                                   public int compare(String o1, String o2) {
-                                       return Integer.valueOf(o1.split(" : ")[0]).compareTo(Integer.valueOf(o2.split(" : ")[0])) * -1;
-                                   }
-                               });
-            currentScores.add(0, "Score : Player");
+            if (currentScores.size() == 1) {
+                currentScores.add("Score : Player");
+                currentScores.add("%d : %s".formatted(score, playerName));
+            } else {
+                currentScores.add("%d : %s".formatted(score, playerName));
+                currentScores.removeAll(titleList);
+                currentScores.sort(new Comparator<String>() {
+                    @Override
+                    public int compare(String o1, String o2) {
+                        return Integer.valueOf(o1.split(" : ")[0]).compareTo(Integer.valueOf(o2.split(" : ")[0])) * -1;
+                    }
+                });
+                currentScores.add(0, "Score : Player");
+            }
             Files.write(
                     Paths.get("src/main/resources/highScores.txt"),
                     currentScores,
@@ -230,6 +236,23 @@ public class Hangman {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static boolean isHighScore(int score) {
+        // Returns true of the input score is higher than all previous scores, otherwise returns false
+        if (score == 0) return false;
+        List<String> titleList = Arrays.asList("Score : Player");
+        List<Integer> scores = new ArrayList<>();
+        try {
+            List<String> scoresStr = Files.readAllLines(Paths.get("src/main/resources/highScores.txt"));
+            if (scoresStr.size() == 1) return true;
+            scoresStr.removeAll(titleList);
+            scores = scoresStr.stream().map(line -> Integer.parseInt(line.split(" : ")[0])).toList();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (scores.isEmpty()) return true;
+        return scores.stream().anyMatch(s -> score > s);
     }
 
     public static void main(String[] args) {
@@ -248,13 +271,18 @@ public class Hangman {
                     game = new Hangman();
                 }
                 System.out.println(game.generateGameScreen());
+                System.out.println(game.getWord());
 
                 game.guess();
 
                 if (game.hasWon()) {
                     score += game.determineScore();
                     System.out.println(game.generateGameScreen());
-                    System.out.printf("Congratulations! You won! The word was %s. Your current score is %d.\n", game.getWord(), score);
+                    if (isHighScore(score)) {
+                        System.out.printf("Congratulations! You won! The word was %s. Your current score is %d.\nThat's a new high score!\n", game.getWord(), score);
+                    } else {
+                        System.out.printf("Congratulations! You won! The word was %s. Your current score is %d.\n", game.getWord(), score);
+                    }
                     game.setScore(game.getScore() + score);
                     if (Hangman.userInputYesOrNo("Would you like to play again?")) newGame = true;
                     else {
@@ -263,11 +291,15 @@ public class Hangman {
                     }
                 } else if (game.getAttempts() == 0) {
                     System.out.println(game.generateGameScreen());
-                    System.out.printf("Game over...\nThe word was %s. Your final score was %d\n", game.getWord(), score);
+                    if (isHighScore(game.getScore())) {
+                        System.out.printf("Game over...\nThe word was %s. Your final score was %d.\nThat's a new high score!\n", game.getWord(), score);
+                    } else {
+                        System.out.printf("Game over...\nThe word was %s. Your final score was %d.\n", game.getWord(), score);
+                    }
                     game.setScore(game.getScore() + score);
+                    if (game.getScore() != 0) game.recordScore();
                     if (Hangman.userInputYesOrNo("Would you like to play again?")) newGame = true;
                     else {
-                        if (game.getScore() != 0) game.recordScore();
                         break;
                     }
                 }
