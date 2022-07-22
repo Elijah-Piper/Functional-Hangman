@@ -271,7 +271,6 @@ public class Hangman {
                     game = new Hangman();
                 }
                 System.out.println(game.generateGameScreen());
-                System.out.println(game.getWord());
 
                 game.guess();
 
